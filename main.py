@@ -5,14 +5,14 @@ import asyncio
 from dotenv import load_dotenv
 
 # Import Core Modules
-from rare_candy.core.types import Signal, SignalType, OrderSide
-from rare_candy.core.strategy.trend_pullback import TrendPullbackStrategy
-from rare_candy.core.risk.manager import RiskManager
-from rare_candy.ops.telemetry import TelemetryWriter
+from core.types import Signal, SignalType, OrderSide
+from core.strategy.trend_pullback import TrendPullbackStrategy
+from core.risk.manager import RiskManager
+from ops.telemetry import TelemetryWriter
 
 # Import System Modules
-from rare_candy.execution.exchange import ExchangeAdapter
-from rare_candy.data.feed import DataPipeline
+from execution.exchange import ExchangeAdapter
+from data.feed import DataPipeline
 
 # Setup Logging
 logging.basicConfig(

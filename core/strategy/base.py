@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from rare_candy.core.types import Candle, Signal, Bias
+from core.types import Candle, Signal, Bias
 
 class Strategy(ABC):
     """

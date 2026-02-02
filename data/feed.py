@@ -2,7 +2,7 @@ import ccxt
 import time
 from datetime import datetime
 from typing import List, Dict
-from rare_candy.core.types import Candle
+from core.types import Candle
 
 class DataPipeline:
     """

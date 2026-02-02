@@ -6,7 +6,7 @@ Wraps pandas_ta for reliability.
 from typing import List, Optional, Tuple
 import pandas as pd
 import pandas_ta as ta
-from rare_candy.core.types import Candle
+from core.types import Candle
 
 def _candles_to_df(candles: List[Candle]) -> pd.DataFrame:
     """Convert Candle list to pandas DataFrame."""

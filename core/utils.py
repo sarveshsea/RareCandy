@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from rare_candy.core.types import Candle
+from core.types import Candle
 
 def find_swings(candles: List[Candle], left: int = 2, right: int = 2) -> List[Dict[str, Any]]:
     """

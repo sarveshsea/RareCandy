@@ -1,8 +1,8 @@
 import math
 from typing import List, Optional
-from rare_candy.core.types import Candle, Signal, SignalType, Bias
-from rare_candy.core.strategy.base import Strategy
-from rare_candy.core.indicators import ema, rsi
+from core.types import Candle, Signal, SignalType, Bias
+from core.strategy.base import Strategy
+from core.indicators import ema, rsi
 
 class TrendPullbackStrategy(Strategy):
     """

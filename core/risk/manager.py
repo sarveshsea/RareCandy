@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, List, Any
 from enum import Enum
-from rare_candy.core.types import Signal, RiskDecision, SignalType
+from core.types import Signal, RiskDecision, SignalType
 
 class RiskProfile(str, Enum):
     CONSERVATIVE = "conservative"

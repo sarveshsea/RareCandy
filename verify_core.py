@@ -6,9 +6,9 @@ import random
 # Add current dir to path to find rare_candy modules
 sys.path.append(os.getcwd())
 
-from rare_candy.core.types import Candle, Bias, SignalType, Signal
-from rare_candy.core.strategy.trend_pullback import TrendPullbackStrategy
-from rare_candy.core.risk.manager import RiskManager
+from core.types import Candle, Bias, SignalType, Signal
+from core.strategy.trend_pullback import TrendPullbackStrategy
+from core.risk.manager import RiskManager
 import logging
 
 # Configure logging

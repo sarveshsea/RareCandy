@@ -1,8 +1,8 @@
 from typing import List, Optional
 from enum import Enum
 from dataclasses import dataclass, field
-from rare_candy.core.types import Candle, Bias
-from rare_candy.core.utils import find_swings
+from core.types import Candle, Bias
+from core.utils import find_swings
 
 class ConfluenceType(str, Enum):
     LIQUIDITY_SWEEP = "LIQUIDITY_SWEEP"

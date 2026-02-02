@@ -1,7 +1,7 @@
 from typing import List
 from dataclasses import dataclass
-from rare_candy.core.types import Candle, Bias, Trend
-from rare_candy.core.utils import find_swings
+from core.types import Candle, Bias, Trend
+from core.utils import find_swings
 
 @dataclass
 class BiasResult:

@@ -1,8 +1,8 @@
 from typing import List, Optional, Dict, Any
-from rare_candy.core.types import Candle, Signal, SignalType, Bias
-from rare_candy.core.regime.confluence import ConfluenceResult, ConfluenceType
-from rare_candy.core.utils import find_swings
-from rare_candy.core.indicators import atr
+from core.types import Candle, Signal, SignalType, Bias
+from core.regime.confluence import ConfluenceResult, ConfluenceType
+from core.utils import find_swings
+from core.indicators import atr
 
 class EntryEngine:
     """

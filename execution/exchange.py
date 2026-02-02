@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime
 from typing import Dict, Any, Optional
-from rare_candy.core.types import OrderSide, Signal, RiskDecision
+from core.types import OrderSide, Signal, RiskDecision
 
 class ExchangeAdapter:
     """
