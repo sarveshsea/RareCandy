@@ -2,8 +2,10 @@
 
 ## Prerequisites
 -   A **Digital Ocean Droplet** (Ubuntu 22.04 or newer recommended).
-    -   **Recommended Size**: Basic Droplet, **2GB RAM / 1 CPU** ($12/mo).
-    -   *Note: 1GB RAM ($6/mo) works but may struggle during the Docker build process.*
+-   A **Digital Ocean Droplet** (Ubuntu 22.04 or newer recommended).
+    -   **Minimum**: Basic Droplet, **2GB RAM / 1 CPU** ($12/mo).
+    -   **Performance (Recommended)**: Basic Droplet, **4GB RAM / 2 CPU** (~$24/mo).
+    -   *Why? Faster builds, better stability for Python + Docker overhead.*
 -   **Tailscale** (optional but recommended for secure access to the dashboard).
 -   **Coinbase API Keys** (API Key & Secret).
 
