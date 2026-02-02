@@ -15,7 +15,7 @@ SERVER_PID=$!
 
 # 2. Start the Trading Bot
 echo "🚀 Bot Engine Started."
-python3 -m rare_candy.main &
+python3 main.py &
 BOT_PID=$!
 
 # Cleanup on exit
