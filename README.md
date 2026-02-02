@@ -30,7 +30,7 @@ A modular, deterministic crypto trading engine.
 
 **Run the Operator (Wurmple):**
 ```bash
-python3 -m rare_candy.main
+python3 main.py
 ```
 This starts the loop: Fetch Data -> Strategy -> Risk -> Execution.
 
