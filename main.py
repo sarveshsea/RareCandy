@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from rare_candy.core.types import Signal, SignalType, OrderSide
 from rare_candy.core.strategy.trend_pullback import TrendPullbackStrategy
 from rare_candy.core.risk.manager import RiskManager
+from rare_candy.ops.telemetry import TelemetryWriter
 
 # Import System Modules
 from rare_candy.execution.exchange import ExchangeAdapter
@@ -19,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler()]
 )
-logger = logging.getLogger("Wurmple")
+logger = logging.getLogger("RareCandy")
 
 # Configuration
 load_dotenv()
@@ -34,8 +35,11 @@ class WurmpleCallback:
     def __init__(self):
         logger.info(f"💎 Rare Candy (Wurmple) Starting... Sandbox={SANDBOX_MODE}")
         
+        self.telemetry = TelemetryWriter(output_dir="dashboard")
+        
         if not API_KEY or not API_SECRET:
             logger.error("Missing API Keys in .env")
+            self.telemetry.log_event("ERROR", "Missing API Keys")
             exit(1)
             
         # Initialize Components
@@ -67,6 +71,9 @@ class WurmpleCallback:
         open_positions = self.exchange.get_positions()
         logger.info(f"Equity: ${self.risk.equity:.2f} | Positions: {open_positions}")
 
+        # Update Telemetry (Heartbeat)
+        self.telemetry.update_state(self.risk.equity, open_positions, active_signal=None)
+
         for symbol in SYMBOLS:
             try:
                 # 1. Pipeline: Data
@@ -83,12 +90,14 @@ class WurmpleCallback:
                 
                 if signal:
                     logger.info(f"🚨 SIGNAL: {signal.type} {symbol} @ {signal.price}")
+                    self.telemetry.log_event("SIGNAL", f"{signal.type} {symbol} {signal.reason}")
                     
                     # 3. Pipeline: Risk
                     decision = self.risk.evaluate(signal, open_positions)
                     
                     if decision.approved:
                         logger.info(f"✅ RISK APPROVED: {decision.quantity} units")
+                        self.telemetry.log_event("TRADE_APPROVED", f"{symbol} {decision.quantity} units")
                         
                         # 4. Pipeline: Execution
                         # Determine side based on signal type
@@ -98,12 +107,14 @@ class WurmpleCallback:
                         self.exchange.execute_order(decision, symbol, side)
                     else:
                         logger.info(f"🛑 RISK BLOCKED: {decision.reason}")
+                        self.telemetry.log_event("RISK_BLOCK", f"{symbol} {decision.reason}")
                 else:
                     # No Signal - Quiet
                     pass
                     
             except Exception as e:
                 logger.error(f"Error processing {symbol}: {e}")
+                self.telemetry.log_event("ERROR", str(e))
 
     def start_loop(self, interval_seconds=60):
         while True:
