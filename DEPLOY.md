@@ -61,6 +61,18 @@ docker compose up -d
 ### 3. Live Mode
 -   **Real Money. Real Risks.**
 
+## Optional: Secure Access with Tailscale (Recommended)
+
+To securely view your bot's dashboard without exposing it to the open internet:
+
+1.  **Run the Tailscale Setup Script**:
+    ```bash
+    ./setup_tailscale.sh
+    ```
+2.  **Authenticate**: Click the link provided in the terminal to connect your Droplet to your Tailscale network.
+3.  **View Dashboard**: The script will confirm your secure IP (e.g., `100.x.y.z`). You can now visit:
+    `http://100.x.y.z:8000/status.json`
+
 ## Monitoring
 
 -   **Logs**: `docker compose logs -f`
