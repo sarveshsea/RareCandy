@@ -9,8 +9,9 @@ class DataPipeline:
     Fetches and manages candle data for strategies.
     Default: 1h and 15m candles.
     """
-    def __init__(self, exchange_client):
-        self.exchange = exchange_client # ccxt instance from ExchangeAdapter
+    def __init__(self, exchange_client=None):
+        # Use a fresh, unauthenticated client for Data to avoid 401s on public endpoints
+        self.exchange = ccxt.coinbase() 
         self.cache: Dict[str, Dict[str, List[Candle]]] = {} # {symbol: {tf: [Candles]}}
 
     def fetch_recent_candles(self, symbol: str, timeframe: str, limit: int = 200) -> List[Candle]:
