@@ -26,7 +26,27 @@ function print_success() {
 
 clear
 echo -e "${CYAN}${BOLD}"
-echo "   💎 RARE CANDY DEPLOYMENT WIZARD 💎   "
+cat << "EOF"
+                                  .
+                                . : .
+                              . : : : .
+                            . : : : : : .
+                          . : : : : : : : .
+                        .' : : : : : : : : '.
+                        ; : : : : : : : : : ;
+                        | : : : RARE  : : : |
+                        | : : : CANDY : : : |
+                        ; : : : : : : : : : ;
+                        '. : : : : : : : : .'
+                          ' . : : : : : . '
+                            ' . : : : . '
+                              ' . : . '
+                                ' . '
+                                
+             (o)   (o)   (o)   (o)   (o)   (o)
+             
+       💎  W E L C O M E   T O   L E V E L   1 0 0  💎
+EOF
 echo -e "${RESET}"
 
 # 1. Environment Configuration
