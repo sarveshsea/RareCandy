@@ -1,5 +1,6 @@
 pydantic>=2.0
-pandas
+numpy<2.0.0
+pandas==1.5.3
 pandas_ta
 ccxt
 python-dotenv
