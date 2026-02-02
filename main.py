@@ -43,7 +43,12 @@ class WurmpleCallback:
             exit(1)
             
         # Initialize Components
-        self.exchange = ExchangeAdapter(API_KEY, API_SECRET, sandbox=SANDBOX_MODE)
+        self.exchange = ExchangeAdapter(
+            API_KEY, 
+            API_SECRET, 
+            sandbox=SANDBOX_MODE,
+            paper_mode=os.getenv("PAPER_MODE", "False").lower() == "true"
+        )
         self.data = DataPipeline(self.exchange.client)
         
         # Initialize Core Logic
