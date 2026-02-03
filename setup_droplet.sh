@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Define Colors for "Cool" UI
 GREEN='\033[0;32m'
@@ -65,15 +66,16 @@ fi
 
 if [ ! -f .env ]; then
     echo -e "${YELLOW}Please enter your COINBASE API credentials:${RESET}"
-    read -p "   API KEY: " api_key
-    read -p "   API SECRET: " api_secret
+    read -r -p "   API KEY: " api_key
+    read -r -s -p "   API SECRET (hidden): " api_secret
+    echo ""
     
     echo ""
     print_step "Select Trading Mode:"
     echo -e "   ${GREEN}1) 💸 PAPER TRADING${RESET} (Recommended)"
     echo -e "   ${YELLOW}2) 🏖️ SANDBOX${RESET} (Dev)"
     echo -e "   ${RED}3) 🚀 LIVE TRADING${RESET} (Real Money)"
-    read -p "   Choice (1-3): " mode_choice
+    read -r -p "   Choice (1-3): " mode_choice
     
     PAPER_MODE="False"
     SANDBOX_MODE="False"

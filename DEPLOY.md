@@ -72,6 +72,10 @@ To securely view your bot's dashboard without exposing it to the open internet:
 2.  **Authenticate**: Click the link provided in the terminal to connect your Droplet to your Tailscale network.
 3.  **View Dashboard**: The script will confirm your secure IP (e.g., `100.x.y.z`). You can now visit:
     `http://100.x.y.z:8000/status.json`
+4.  **View Live Terminal Logs**:
+    `http://100.x.y.z:8000/terminal.log`
+5.  **SSH Terminal Over Tailscale**:
+    `tailscale ssh <USER>@<HOSTNAME>`
 
 ## Monitoring
 

@@ -1,0 +1,12 @@
+strategy,folds,chosen_variants,avg_test_return_pct,avg_test_max_dd_pct,avg_test_sharpe,avg_test_profit_factor,avg_test_trades,avg_test_win_rate,avg_test_score
+BackQuant_VolSkew,3,"base,base,base",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+DAFE_Bands_SmartComposite,3,"slow,slow,slow",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+Extreme_HMA_ATR,3,"fast,fast,fast",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+GK_Trend_Ribbon,3,"fast,fast,fast",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+Gaussian_MA,3,"slow,slow,slow",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+Jurik_Breakouts,3,"fast,fast,fast",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+KTY_ABCD,3,"slow,slow,slow",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+LuxAlgo_MSB_OB,3,"fast,fast,fast",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+PrimeUltimate_Sniper,3,"fast,fast,fast",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+REH_REL_Breakout,3,"fast,fast,fast",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0
+SmartSafeZone,3,"base,base,base",-999.0,99.0,-99.0,0.0,0.0,0.0,-999.0

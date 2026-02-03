@@ -1,25 +1,27 @@
 #!/bin/bash
-
-# Kill exiting python processes if needed
-# pkill -f rare_candy.main
-# pkill -f http.server
+set -euo pipefail
 
 echo "💎 Starting Rare Candy + Telemetry Server..."
 
-# 1. Start the simple HTTP server to expose the 'dashboard' folder on port 8000
-# This allows remote agents to fetch http://tailscale-ip:8000/status.json
-echo "📊 Telemetry available at http://[TAILSCALE_IP]:8000/status.json"
-mkdir -p dashboard
-python3 -m http.server 8000 --directory dashboard &
+mkdir -p dashboard logs
+touch dashboard/terminal.log
+
+# 1. Expose telemetry and terminal log file through the dashboard web server.
+echo "📊 Telemetry:      http://[TAILSCALE_IP]:8000/status.json"
+echo "🖥️ Terminal logs:  http://[TAILSCALE_IP]:8000/terminal.log"
+python3 -m http.server 8000 --directory dashboard > logs/http_server.log 2>&1 &
 SERVER_PID=$!
 
-# 2. Start the Trading Bot
+# 2. Start trading engine and stream stdout/stderr into dashboard/terminal.log.
 echo "🚀 Bot Engine Started."
-python3 main.py &
+python3 -u main.py >> dashboard/terminal.log 2>&1 &
 BOT_PID=$!
 
-# Cleanup on exit
-trap "kill $SERVER_PID $BOT_PID; exit" SIGINT SIGTERM
+cleanup() {
+  kill "$SERVER_PID" "$BOT_PID" 2>/dev/null || true
+}
 
-# Keep execution alive
+trap cleanup SIGINT SIGTERM
+
+# Keep execution alive.
 wait

@@ -1,36 +1,25 @@
-# Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Prevent Python from buffering stdout and stderr
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Copy the current directory contents into the container at /app
-COPY . /app
-
-# Install system dependencies required for building Python packages (numpy/pandas/ta)
-RUN apt-get update && apt-get install -y \
+# Keep build deps minimal; install Python deps in a cached layer first.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
-    git \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
-# Upgrade pip first
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r /app/requirements.txt
 
-# Make sure the start script is executable
-RUN chmod +x start_exposed.sh
+COPY . /app
+RUN chmod +x /app/start_exposed.sh
 
-# Expose port 8000 for the telemetry dashboard
 EXPOSE 8000
 
-# Define environment variable
-# ENV NAME RareCandy
-
-# Run start_exposed.sh when the container launches
 CMD ["./start_exposed.sh"]

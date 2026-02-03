@@ -110,6 +110,7 @@ class RiskManager:
         if units * signal.price < 5.0:
             return RiskDecision(False, "Position Too Small", 0.0, 0.0)
             
+        self.daily_trades += 1
         return RiskDecision(
             approved=True,
             reason=f"Approved ({self.profile.name})",

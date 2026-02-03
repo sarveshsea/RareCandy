@@ -1,0 +1,21 @@
+{
+  "timeframe": "15m",
+  "start_utc": "2025-05-01T00:00:00+00:00",
+  "end_utc": "2026-02-03T00:00:00+00:00",
+  "symbols": [
+    "BTC/USD",
+    "ETH/USD"
+  ],
+  "boswaves_symbols": [
+    "BTC/USD",
+    "ETH/USD",
+    "SOL/USD",
+    "LTC/USD",
+    "XRP/USD",
+    "ADA/USD",
+    "DOGE/USD",
+    "BCH/USD"
+  ],
+  "cost_per_side": 0.0006,
+  "note": "Signal mappings are deterministic approximations of indicator logic for cross-strategy comparability."
+}
