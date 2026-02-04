@@ -12,4 +12,8 @@ env/
 dashboard/
 logs/
 paper_state.json
+analysis/results/
+analysis/artifacts/
+exports/
+tests/
 .DS_Store

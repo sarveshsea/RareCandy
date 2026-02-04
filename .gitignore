@@ -44,3 +44,11 @@ venv.bak/
 *.log
 logs/
 paper_state.json
+
+# Generated analysis/runtime artifacts
+analysis/artifacts/
+analysis/results/
+exports/
+dashboard/
+ops/deployment_pause_calibration.json
+*.ipynb_checkpoints/
