@@ -97,6 +97,11 @@ python3 analysis/monitor_adaptive_regime.py \
   --min-avg-sharpe 0
 ```
 
+Live dashboard endpoints after deployment:
+- `http://<TAILSCALE_IP>:8000/quant` (candles + trades)
+- `http://<TAILSCALE_IP>:8000/status.json`
+- `http://<TAILSCALE_IP>:8000/logs`
+
 ---
 
 *Verified Working 2026. MIT License.*

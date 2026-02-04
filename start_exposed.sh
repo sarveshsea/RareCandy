@@ -7,6 +7,7 @@ mkdir -p dashboard logs
 touch dashboard/terminal.log
 
 # 1. Expose telemetry and logs through dashboard server (no-cache + live page).
+echo "📈 Quant Dashboard:http://[TAILSCALE_IP]:8000/quant"
 echo "📊 Telemetry:      http://[TAILSCALE_IP]:8000/status.json"
 echo "🖥️ Live Logs:      http://[TAILSCALE_IP]:8000/logs"
 echo "🖥️ Raw Log:        http://[TAILSCALE_IP]:8000/terminal.log"
