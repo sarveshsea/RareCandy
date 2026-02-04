@@ -2,7 +2,6 @@ import os
 import time
 import logging
 import asyncio
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -11,6 +10,7 @@ from core.types import Signal, SignalType, OrderSide
 from core.strategy.trend_pullback import TrendPullbackStrategy
 from core.risk.manager import RiskManager
 from ops.telemetry import TelemetryWriter
+from ops.pause_guard import is_entry_signal, read_pause_guard, should_block_new_entry
 
 # Import System Modules
 from execution.exchange import ExchangeAdapter
@@ -72,35 +72,10 @@ class WurmpleCallback:
         )
 
     def _entry_signal(self, signal_type: SignalType) -> bool:
-        return signal_type in {SignalType.ENTRY_LONG, SignalType.ENTRY_SHORT}
+        return is_entry_signal(signal_type)
 
     def _read_pause_guard(self):
-        """
-        Read deployment pause flag and return (paused, reason).
-        If the guard file is unreadable, fail closed (paused=True).
-        """
-        if not self.pause_entries_on_flag:
-            return False, ""
-
-        if not self.pause_flag_path.exists():
-            return False, ""
-
-        try:
-            payload = json.loads(self.pause_flag_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            return True, f"pause flag parse error: {e}"
-
-        if isinstance(payload, dict):
-            paused = bool(payload.get("pause_deployment", True))
-            breaches = payload.get("breaches", [])
-            if paused:
-                if isinstance(breaches, list) and breaches:
-                    return True, "calibration guard breach: " + ", ".join(str(b) for b in breaches)
-                return True, str(payload.get("reason", "deployment paused by calibration guard"))
-            return False, ""
-
-        # Non-dict payload still means operator explicitly wrote a guard file.
-        return True, "deployment paused by calibration guard file"
+        return read_pause_guard(self.pause_flag_path, enabled=self.pause_entries_on_flag)
 
     def _log_pause_state(self, paused: bool, reason: str):
         if self._last_pause_state == paused and self._last_pause_reason == reason:
@@ -158,17 +133,18 @@ class WurmpleCallback:
                 if signal:
                     logger.info(f"🚨 SIGNAL: {signal.type} {symbol} @ {signal.price}")
                     self.telemetry.log_event("SIGNAL", f"{signal.type} {symbol} {signal.reason}")
+
+                    # Deployment safety guard: block fresh entries before risk side-effects.
+                    if should_block_new_entry(paused, signal.type):
+                        msg = f"{symbol} {signal.type} blocked by deployment pause guard ({pause_reason})"
+                        logger.warning(f"⛔ {msg}")
+                        self.telemetry.log_event("DEPLOYMENT_GUARD_BLOCK", msg)
+                        continue
                     
                     # 3. Pipeline: Risk
                     decision = self.risk.evaluate(signal, open_positions)
                     
                     if decision.approved:
-                        if paused and self._entry_signal(signal.type):
-                            msg = f"{symbol} {signal.type} blocked by deployment pause guard ({pause_reason})"
-                            logger.warning(f"⛔ {msg}")
-                            self.telemetry.log_event("DEPLOYMENT_GUARD_BLOCK", msg)
-                            continue
-
                         logger.info(f"✅ RISK APPROVED: {decision.quantity} units")
                         self.telemetry.log_event("TRADE_APPROVED", f"{symbol} {decision.quantity} units")
                         
