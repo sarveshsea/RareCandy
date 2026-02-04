@@ -2,6 +2,8 @@ import os
 import time
 import logging
 import asyncio
+import json
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Import Core Modules
@@ -28,6 +30,7 @@ API_KEY = os.getenv("COINBASE_API_KEY")
 API_SECRET = os.getenv("COINBASE_API_SECRET")
 SANDBOX_MODE = os.getenv("SANDBOX_MODE", "True").lower() == "true"
 SYMBOLS = ["BTC/USD", "ETH/USD"] # Target symbols
+DEPLOYMENT_PAUSE_FLAG = Path(os.getenv("DEPLOYMENT_PAUSE_FLAG", "ops/deployment_pause_calibration.json"))
 
 class WurmpleCallback:
     """Operator that runs the bot loop."""
@@ -36,6 +39,10 @@ class WurmpleCallback:
         logger.info(f"💎 Rare Candy (Wurmple) Starting... Sandbox={SANDBOX_MODE}")
         
         self.telemetry = TelemetryWriter(output_dir="dashboard")
+        self.pause_flag_path = DEPLOYMENT_PAUSE_FLAG
+        self.pause_entries_on_flag = os.getenv("PAUSE_ENTRIES_ON_CALIBRATION_ALERT", "true").lower() == "true"
+        self._last_pause_state = None
+        self._last_pause_reason = ""
         
         if not API_KEY or not API_SECRET:
             logger.error("Missing API Keys in .env")
@@ -64,6 +71,49 @@ class WurmpleCallback:
             long_only=True # Safety first
         )
 
+    def _entry_signal(self, signal_type: SignalType) -> bool:
+        return signal_type in {SignalType.ENTRY_LONG, SignalType.ENTRY_SHORT}
+
+    def _read_pause_guard(self):
+        """
+        Read deployment pause flag and return (paused, reason).
+        If the guard file is unreadable, fail closed (paused=True).
+        """
+        if not self.pause_entries_on_flag:
+            return False, ""
+
+        if not self.pause_flag_path.exists():
+            return False, ""
+
+        try:
+            payload = json.loads(self.pause_flag_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            return True, f"pause flag parse error: {e}"
+
+        if isinstance(payload, dict):
+            paused = bool(payload.get("pause_deployment", True))
+            breaches = payload.get("breaches", [])
+            if paused:
+                if isinstance(breaches, list) and breaches:
+                    return True, "calibration guard breach: " + ", ".join(str(b) for b in breaches)
+                return True, str(payload.get("reason", "deployment paused by calibration guard"))
+            return False, ""
+
+        # Non-dict payload still means operator explicitly wrote a guard file.
+        return True, "deployment paused by calibration guard file"
+
+    def _log_pause_state(self, paused: bool, reason: str):
+        if self._last_pause_state == paused and self._last_pause_reason == reason:
+            return
+        self._last_pause_state = paused
+        self._last_pause_reason = reason
+        if paused:
+            logger.warning(f"⏸️ Deployment guard active. New entries paused. Reason: {reason}")
+            self.telemetry.log_event("DEPLOYMENT_PAUSED", reason)
+        else:
+            logger.info("▶️ Deployment guard cleared. Entry deployment resumed.")
+            self.telemetry.log_event("DEPLOYMENT_RESUMED", "Calibration guard cleared")
+
     def run_once(self):
         """Single Tick Execution."""
         logger.info("--- Tick ---")
@@ -76,11 +126,23 @@ class WurmpleCallback:
         open_positions = self.exchange.get_positions()
         logger.info(f"Equity: ${self.risk.equity:.2f} | Positions: {open_positions}")
 
+        paused, pause_reason = self._read_pause_guard()
+        self._log_pause_state(paused, pause_reason)
+
         # Update Telemetry (Heartbeat)
-        self.telemetry.update_state(self.risk.equity, open_positions, active_signal=None)
+        self.telemetry.update_state(
+            self.risk.equity,
+            open_positions,
+            active_signal=(f"PAUSED: {pause_reason}" if paused else None),
+        )
 
         for symbol in SYMBOLS:
             try:
+                has_position = symbol in open_positions and float(open_positions[symbol]) > 0
+                if paused and not has_position:
+                    # When paused, skip fresh scans for symbols without active exposure.
+                    continue
+
                 # 1. Pipeline: Data
                 candles = self.data.get_latest(symbol)
                 c_1h = candles.get('1h', [])
@@ -101,6 +163,12 @@ class WurmpleCallback:
                     decision = self.risk.evaluate(signal, open_positions)
                     
                     if decision.approved:
+                        if paused and self._entry_signal(signal.type):
+                            msg = f"{symbol} {signal.type} blocked by deployment pause guard ({pause_reason})"
+                            logger.warning(f"⛔ {msg}")
+                            self.telemetry.log_event("DEPLOYMENT_GUARD_BLOCK", msg)
+                            continue
+
                         logger.info(f"✅ RISK APPROVED: {decision.quantity} units")
                         self.telemetry.log_event("TRADE_APPROVED", f"{symbol} {decision.quantity} units")
                         
