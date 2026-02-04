@@ -73,6 +73,30 @@ Currently configured with `TrendPullbackStrategy`:
 -   **LTF (15m)**: Pullback to EMA band + Reversal candle.
 -   **Risk**: Dynamic sizing based on equity and conservative profile.
 
+## 🧪 Adaptive Research & Monitoring
+
+For adaptive Pine-derived research runs:
+
+```bash
+# Rebuild adaptive regime results + Pine template
+python3 analysis/adaptive_regime_selector.py
+
+# One-shot health check (writes analysis/results/adaptive_monitor_status.json)
+python3 analysis/monitor_adaptive_regime.py
+
+# Continuous monitor loop (every 15m)
+python3 analysis/monitor_adaptive_regime.py --loop --interval-sec 900
+```
+
+Monitor thresholds can be tuned:
+
+```bash
+python3 analysis/monitor_adaptive_regime.py \
+  --min-avg-return 0 \
+  --max-avg-dd 12 \
+  --min-avg-sharpe 0
+```
+
 ---
 
 *Verified Working 2026. MIT License.*
