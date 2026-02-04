@@ -1,0 +1,52 @@
+{
+  "timeframe": "15m",
+  "start_utc": "2025-05-01T00:00:00+00:00",
+  "end_utc": "2026-02-03T00:00:00+00:00",
+  "symbols": [
+    "BTC/USD",
+    "ETH/USD"
+  ],
+  "cost_per_side": 0.0006,
+  "config": {
+    "decay": 0.99,
+    "reward_scale": 120.0,
+    "vote_threshold": 0.28,
+    "top_k": 1,
+    "dd_kill_threshold": 0.08,
+    "dd_cooldown_bars": 48,
+    "target_bar_vol": 0.0025,
+    "max_leverage": 1.2,
+    "vol_window": 96,
+    "risk_on_threshold": 3.0,
+    "risk_off_threshold": 2.0,
+    "allow_short": false,
+    "trend_filter": true,
+    "neutral_trend_mode": true
+  },
+  "avg_return_pct": 6.399109514298962,
+  "avg_max_dd_pct": 8.024668778951106,
+  "avg_sharpe": 1.0476355012147551,
+  "avg_win_rate": 14.135254988913523,
+  "avg_profit_factor": 1.8870383185294872,
+  "per_symbol": [
+    {
+      "symbol": "BTC/USD",
+      "trades": 22,
+      "win_rate": 13.636363636363635,
+      "total_return_pct": 2.2943184207597778,
+      "max_drawdown_pct": 8.030134568913317,
+      "sharpe": 0.4514057375450931,
+      "profit_factor": 1.614915189633831
+    },
+    {
+      "symbol": "ETH/USD",
+      "trades": 41,
+      "win_rate": 14.634146341463413,
+      "total_return_pct": 10.503900607838146,
+      "max_drawdown_pct": 8.019202988988894,
+      "sharpe": 1.6438652648844172,
+      "profit_factor": 2.1591614474251433
+    }
+  ],
+  "disclaimer": "Backtest fit on a fixed window; use forward-testing before live deployment."
+}
