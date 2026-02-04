@@ -43,6 +43,46 @@ Run with Docker Compose:
 docker compose up -d
 ```
 
+## Safe Update Procedure (Recommended Before Every Deploy)
+
+Use this exact flow to ensure your droplet is synced to `origin/main` and calibration guard is evaluated before new entries are allowed.
+
+1. **Hard-sync repository to remote main**
+   ```bash
+   cd ~/RareCandy
+   git remote set-url origin https://github.com/sarveshsea/RareCandy.git
+   git config --replace-all remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+   git fetch --prune origin
+   git checkout -B main origin/main
+   git log --oneline -n 5
+   ```
+
+2. **Run predeploy checks**
+   ```bash
+   ./scripts/predeploy_check.sh
+   ```
+
+3. **Rebuild and restart**
+   ```bash
+   docker compose build
+   docker compose up -d
+   ```
+
+4. **Run calibration pipeline inside container**
+   ```bash
+   docker exec -w /app rare_candy_bot python3 generate_example.py
+   docker exec -w /app rare_candy_bot python3 unit_check.py
+   docker exec -w /app rare_candy_bot ./scripts/run_calibration_pipeline.sh || true
+   ```
+
+5. **Check guard status**
+   ```bash
+   docker exec -w /app rare_candy_bot cat analysis/artifacts/calibration/calibration_alert_status.json
+   docker exec -w /app rare_candy_bot ls -la ops/deployment_pause_calibration.json
+   ```
+   - If `pause_deployment: true`, runtime stays in **no-new-entries** mode (expected fail-safe).
+   - Remove pause only when calibration gate clears.
+
 ## Trading Modes
 
 ### 1. Paper Mode (Recommended First)
