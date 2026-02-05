@@ -29,6 +29,12 @@ PORT = int(os.getenv("DASHBOARD_PORT", "8000"))
 MAX_LOG_BYTES = int(os.getenv("DASHBOARD_MAX_LOG_BYTES", "300000"))
 PAPER_STATE_FILE = Path(os.getenv("PAPER_STATE_FILE", "paper_state.json")).resolve()
 PAPER_START_EQUITY = float(os.getenv("PAPER_START_EQUITY", "10000"))
+CALIBRATION_STATUS_FILE = Path(
+    os.getenv("CALIBRATION_STATUS_FILE", "analysis/artifacts/calibration/calibration_alert_status.json")
+).resolve()
+DEPLOYMENT_PAUSE_FLAG = Path(
+    os.getenv("DEPLOYMENT_PAUSE_FLAG", "ops/deployment_pause_calibration.json")
+).resolve()
 
 EX = ccxt.coinbase({"enableRateLimit": True})
 _CANDLE_CACHE: dict[tuple[str, str, int], tuple[float, list[dict]]] = {}
@@ -148,6 +154,34 @@ def _events(limit: int) -> list[dict]:
         except Exception:
             out.append({"timestamp": "", "type": "RAW", "message": line})
     return out
+
+
+def _gate_status() -> dict:
+    status = _read_json(CALIBRATION_STATUS_FILE, {})
+    pause_flag_exists = DEPLOYMENT_PAUSE_FLAG.exists()
+
+    if not isinstance(status, dict) or not status:
+        return {
+            "pause_deployment": pause_flag_exists,
+            "reason": "calibration status unavailable",
+            "window_trade_count": None,
+            "ev_ci_low_95": None,
+            "ece": None,
+            "generated_at": None,
+            "status_file": str(CALIBRATION_STATUS_FILE),
+            "pause_flag_file": str(DEPLOYMENT_PAUSE_FLAG),
+        }
+
+    return {
+        "pause_deployment": bool(status.get("pause_deployment", pause_flag_exists)),
+        "reason": status.get("reason", ""),
+        "window_trade_count": status.get("window_trade_count"),
+        "ev_ci_low_95": status.get("ev_ci_low_95"),
+        "ece": status.get("ece"),
+        "generated_at": status.get("generated_at"),
+        "status_file": str(CALIBRATION_STATUS_FILE),
+        "pause_flag_file": str(DEPLOYMENT_PAUSE_FLAG),
+    }
 
 
 def _trades(symbol: str, limit: int) -> list[dict]:
@@ -280,7 +314,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
     .top a { color: #93c5fd; text-decoration: none; margin-right: 8px; font-size: 13px; }
     .select, .btn { background: var(--panel); color: var(--text); border: 1px solid var(--line); padding: 8px 10px; border-radius: 8px; }
-    .grid { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(9, minmax(120px, 1fr)); gap: 10px; margin-bottom: 12px; }
     .card { background: linear-gradient(180deg, var(--panel), var(--panel2)); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
     .label { color: var(--muted); font-size: 12px; }
     .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
@@ -320,6 +354,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
       <div class="card"><div class="label">PnL %</div><div class="value" id="pnlp">-%</div></div>
       <div class="card"><div class="label">Open Positions</div><div class="value" id="pos">-</div></div>
       <div class="card"><div class="label">Healthy</div><div class="value" id="healthy">-</div></div>
+      <div class="card"><div class="label">Deploy Gate</div><div class="value" id="gate">-</div></div>
+      <div class="card"><div class="label">Gate Reason</div><div class="value" id="gateReason">-</div></div>
+      <div class="card"><div class="label">EV CI Low (95%)</div><div class="value" id="evcilow">-</div></div>
+      <div class="card"><div class="label">ECE</div><div class="value" id="ece">-</div></div>
     </div>
 
     <div id="chart"></div>
@@ -377,12 +415,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
       const ts = Date.now();
       meta.textContent = 'loading...';
       try {
-        const [cRes, tRes, sRes, pRes, eRes] = await Promise.all([
+        const [cRes, tRes, sRes, pRes, eRes, gRes] = await Promise.all([
           fetch(`/api/candles?symbol=${encodeURIComponent(sym)}&timeframe=${encodeURIComponent(tf)}&limit=350&ts=${ts}`, {cache: 'no-store'}),
           fetch(`/api/trades?symbol=${encodeURIComponent(sym)}&limit=120&ts=${ts}`, {cache: 'no-store'}),
           fetch(`/status.json?ts=${ts}`, {cache: 'no-store'}),
           fetch(`/api/performance?ts=${ts}`, {cache: 'no-store'}),
           fetch(`/api/events?limit=80&ts=${ts}`, {cache: 'no-store'}),
+          fetch(`/api/gate_status?ts=${ts}`, {cache: 'no-store'}),
         ]);
 
         const cObj = await cRes.json();
@@ -390,6 +429,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         const sObj = await sRes.json();
         const pObj = await pRes.json();
         const eObj = await eRes.json();
+        const gObj = await gRes.json();
 
         const cData = cObj.candles || [];
         candles.setData(cData.map(x => ({time:x.time, open:x.open, high:x.high, low:x.low, close:x.close})));
@@ -418,6 +458,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         document.getElementById('pos').textContent = Object.keys((pObj.positions || {})).length;
         document.getElementById('healthy').textContent = String(sObj.healthy);
         document.getElementById('healthy').className = 'value ' + (sObj.healthy ? 'g' : 'r');
+        document.getElementById('gate').textContent = gObj.pause_deployment ? 'PAUSED' : 'CLEAR';
+        document.getElementById('gate').className = 'value ' + (gObj.pause_deployment ? 'r' : 'g');
+        document.getElementById('gateReason').textContent = (gObj.reason || '-').slice(0, 72);
+        const evCi = Number(gObj.ev_ci_low_95);
+        document.getElementById('evcilow').textContent = Number.isFinite(evCi) ? evCi.toFixed(6) : '-';
+        document.getElementById('evcilow').className = 'value ' + (Number.isFinite(evCi) && evCi > 0 ? 'g' : 'r');
+        const eceVal = Number(gObj.ece);
+        document.getElementById('ece').textContent = Number.isFinite(eceVal) ? eceVal.toFixed(4) : '-';
+        document.getElementById('ece').className = 'value ' + (Number.isFinite(eceVal) && eceVal <= 0.03 ? 'g' : 'r');
 
         tradesBody.innerHTML = '';
         for (const t of trades.slice().reverse().slice(0, 40)) {
@@ -506,6 +555,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if path == "/api/performance":
             self._send_json(_paper_performance())
+            return
+
+        if path == "/api/gate_status":
+            self._send_json(_gate_status())
             return
 
         if path == "/health":

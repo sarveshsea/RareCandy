@@ -2,6 +2,8 @@ import os
 import time
 import logging
 import asyncio
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -138,7 +140,14 @@ class WurmpleCallback:
                     if should_block_new_entry(paused, signal.type):
                         msg = f"{symbol} {signal.type} blocked by deployment pause guard ({pause_reason})"
                         logger.warning(f"⛔ {msg}")
-                        self.telemetry.log_event("DEPLOYMENT_GUARD_BLOCK", msg)
+                        payload = {
+                            "signal_type": signal.type.value if hasattr(signal.type, "value") else str(signal.type),
+                            "reason": pause_reason,
+                            "pause_source": str(self.pause_flag_path),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "symbol": symbol,
+                        }
+                        self.telemetry.log_event("DEPLOYMENT_GUARD_BLOCK", json.dumps(payload))
                         continue
                     
                     # 3. Pipeline: Risk

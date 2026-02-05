@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -132,7 +133,12 @@ def test_entry_signal_is_blocked_before_risk_eval_when_paused() -> None:
     bot.run_once()
     assert bot.risk.evaluate_calls == 0
     assert bot.exchange.execute_calls == 0
-    assert any(event == "DEPLOYMENT_GUARD_BLOCK" for event, _ in bot.telemetry.events)
+    block_events = [msg for event, msg in bot.telemetry.events if event == "DEPLOYMENT_GUARD_BLOCK"]
+    assert block_events
+    payload = json.loads(block_events[0])
+    assert payload["signal_type"] == SignalType.ENTRY_LONG.value
+    assert payload["reason"] == "test pause"
+    assert "timestamp" in payload
 
 
 def test_non_entry_signal_allowed_to_reach_risk_when_paused() -> None:
