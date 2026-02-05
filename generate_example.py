@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import os
+import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -104,8 +105,21 @@ def main() -> None:
     baseline.to_csv(baseline_csv, index=False)
     baseline.to_parquet(baseline_parquet, index=False)
 
+    export_manifest = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "data_origin": "synthetic",
+        "generator": "generate_example.py",
+        "rows": int(len(strategy)),
+        "timestamp_start": str(strategy["timestamp"].iloc[0]),
+        "timestamp_end": str(strategy["timestamp"].iloc[-1]),
+    }
+    (out_dir / "rarecandy_export.manifest.json").write_text(
+        json.dumps(export_manifest, indent=2), encoding="utf-8"
+    )
+
     print(f"Wrote {strategy_csv} ({len(strategy)} rows)")
     print(f"Wrote {strategy_parquet} ({len(strategy)} rows)")
+    print(f"Wrote {out_dir / 'rarecandy_export.manifest.json'}")
     print(f"Wrote {baseline_csv} ({len(baseline)} rows)")
     print(f"Wrote {baseline_parquet} ({len(baseline)} rows)")
 

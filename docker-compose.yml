@@ -12,3 +12,5 @@ services:
     volumes:
       - ./dashboard:/app/dashboard
       - ./logs:/app/logs
+      - ./exports:/app/exports
+      - ./analysis/artifacts:/app/analysis/artifacts

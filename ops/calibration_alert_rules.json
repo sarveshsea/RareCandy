@@ -1,7 +1,13 @@
 {
-  "min_rows_test": 200,
-  "max_ece": 0.08,
+  "min_rows_test": 250,
+  "max_ece": 0.03,
   "max_brier": 0.26,
-  "min_ev_per_deployed_dollar": 0.0001,
-  "min_threshold_signals": 25
+  "min_ev_per_deployed_dollar": 0.0,
+  "min_ev_ci_low_95": 0.0,
+  "min_threshold_signals": 25,
+  "allowed_data_origins": [
+    "live",
+    "paper_live",
+    "production"
+  ]
 }

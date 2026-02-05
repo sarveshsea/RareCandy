@@ -188,7 +188,21 @@ def threshold_sweep(
     threshold_max: float = 0.95,
     threshold_step: float = 0.01,
     min_signals: int = 20,
+    bootstrap_samples: int = 500,
 ) -> pd.DataFrame:
+    def bootstrap_mean_ci(values: np.ndarray, n_boot: int = 500, ci: float = 0.95, seed: int = 42) -> Tuple[float, float]:
+        arr = np.asarray(values, dtype=float)
+        if arr.size == 0:
+            return float("nan"), float("nan")
+        rng = np.random.default_rng(seed)
+        means = np.empty(n_boot, dtype=float)
+        n = arr.size
+        for i in range(n_boot):
+            sample = rng.choice(arr, size=n, replace=True)
+            means[i] = float(np.mean(sample))
+        alpha = (1.0 - ci) / 2.0
+        return float(np.quantile(means, alpha)), float(np.quantile(means, 1.0 - alpha))
+
     rows: List[dict] = []
     fixed = np.arange(threshold_min, threshold_max + 1e-9, threshold_step)
     probs = frame[prob_col].dropna().to_numpy(dtype=float)
@@ -200,6 +214,8 @@ def threshold_sweep(
                 "deployed_dollars",
                 "win_rate",
                 "ev_per_deployed_dollar",
+                "ev_ci_low_95",
+                "ev_ci_high_95",
                 "expected_total_pnl",
             ]
         )
@@ -213,6 +229,7 @@ def threshold_sweep(
             continue
         pnl = deploy["pnl"].to_numpy(dtype=float)
         ev = float(np.mean(pnl))
+        ev_ci_low, ev_ci_high = bootstrap_mean_ci(pnl, n_boot=bootstrap_samples, ci=0.95, seed=42 + int(thr * 1000))
         win_rate = float(np.mean(deploy["label"].to_numpy(dtype=float)))
         deployed_dollars = float(n)
         expected_total = ev * deployed_dollars
@@ -223,6 +240,8 @@ def threshold_sweep(
                 "deployed_dollars": deployed_dollars,
                 "win_rate": win_rate,
                 "ev_per_deployed_dollar": ev,
+                "ev_ci_low_95": ev_ci_low,
+                "ev_ci_high_95": ev_ci_high,
                 "expected_total_pnl": expected_total,
             }
         )
@@ -234,6 +253,8 @@ def threshold_sweep(
                 "deployed_dollars",
                 "win_rate",
                 "ev_per_deployed_dollar",
+                "ev_ci_low_95",
+                "ev_ci_high_95",
                 "expected_total_pnl",
             ]
         )

@@ -5,7 +5,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
 import sys
 
 import joblib
@@ -28,6 +28,39 @@ from calibration_utils import (
     split_train_test,
     threshold_sweep,
 )
+
+
+ALLOWED_REAL_EXPORT_ORIGINS = {"live", "paper_live", "production"}
+
+
+def _resolve_export_file(exports_dir: Path, stem: str) -> Path:
+    csv_path = exports_dir / f"{stem}.csv"
+    parquet_path = exports_dir / f"{stem}.parquet"
+    if parquet_path.exists():
+        return parquet_path
+    if csv_path.exists():
+        return csv_path
+    raise FileNotFoundError(f"Missing export for stem={stem}: {csv_path} and {parquet_path}")
+
+
+def _load_export_manifest(exports_dir: Path, stem: str) -> Tuple[Path, dict]:
+    manifest_path = exports_dir / f"{stem}.manifest.json"
+    if not manifest_path.exists():
+        return manifest_path, {}
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Invalid export manifest at {manifest_path}: expected object payload")
+    return manifest_path, payload
+
+
+def _parse_latest_timestamp(df: pd.DataFrame) -> datetime:
+    if "timestamp" not in df.columns:
+        raise ValueError("export is missing required 'timestamp' column for staleness checks")
+    ts = pd.to_datetime(df["timestamp"], errors="coerce", utc=True).dropna()
+    if ts.empty:
+        raise ValueError("failed to parse any timestamps from export for staleness checks")
+    latest = ts.max()
+    return latest.to_pydatetime()
 
 
 def _write_svg(path: Path, width: int, height: int, body: str) -> None:
@@ -128,6 +161,9 @@ def main() -> None:
     parser.add_argument("--train-frac", type=float, default=0.7)
     parser.add_argument("--bins", type=int, default=10)
     parser.add_argument("--min-signals", type=int, default=20)
+    parser.add_argument("--bootstrap-samples", type=int, default=500)
+    parser.add_argument("--require-real-export", action="store_true")
+    parser.add_argument("--max-export-age-hours", type=float, default=24.0)
     args = parser.parse_args()
 
     exports_dir = Path(args.exports_dir)
@@ -136,7 +172,32 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     model_dir.mkdir(parents=True, exist_ok=True)
 
+    export_file = _resolve_export_file(exports_dir, args.stem)
+    manifest_path, export_manifest = _load_export_manifest(exports_dir, args.stem)
+    data_origin = str(export_manifest.get("data_origin", "unknown")).strip().lower()
+
+    if args.require_real_export:
+        if not export_manifest:
+            raise SystemExit(
+                f"Missing export manifest: {manifest_path}. "
+                "Real-export deployment gate requires a manifest with data_origin."
+            )
+        if data_origin not in ALLOWED_REAL_EXPORT_ORIGINS:
+            raise SystemExit(
+                f"Export manifest origin '{data_origin}' is not eligible for deployment gate. "
+                f"Allowed origins: {sorted(ALLOWED_REAL_EXPORT_ORIGINS)}"
+            )
+
     df = load_export(exports_dir, args.stem)
+    latest_ts = _parse_latest_timestamp(df)
+    now_utc = datetime.now(timezone.utc)
+    age_hours = (now_utc - latest_ts.astimezone(timezone.utc)).total_seconds() / 3600.0
+    if args.max_export_age_hours > 0 and age_hours > args.max_export_age_hours:
+        raise SystemExit(
+            f"Export is stale: latest timestamp is {latest_ts.isoformat()} "
+            f"({age_hours:.2f}h old, max allowed={args.max_export_age_hours}h)."
+        )
+
     dataset = build_calibration_dataset(df, horizon=args.horizon, trading_cost=args.trading_cost)
     train_df, test_df = split_train_test(dataset, train_frac=args.train_frac)
 
@@ -171,6 +232,7 @@ def main() -> None:
         threshold_max=0.95,
         threshold_step=0.01,
         min_signals=args.min_signals,
+        bootstrap_samples=args.bootstrap_samples,
     )
     sweep.to_csv(out_dir / "threshold_sweep.csv", index=False)
 
@@ -179,6 +241,8 @@ def main() -> None:
             "threshold": None,
             "signals": 0,
             "ev_per_deployed_dollar": None,
+            "ev_ci_low_95": None,
+            "ev_ci_high_95": None,
             "expected_total_pnl": None,
             "win_rate": None,
         }
@@ -188,6 +252,8 @@ def main() -> None:
             "threshold": float(top["threshold"]),
             "signals": int(top["signals"]),
             "ev_per_deployed_dollar": float(top["ev_per_deployed_dollar"]),
+            "ev_ci_low_95": float(top["ev_ci_low_95"]),
+            "ev_ci_high_95": float(top["ev_ci_high_95"]),
             "expected_total_pnl": float(top["expected_total_pnl"]),
             "win_rate": float(top["win_rate"]),
         }
@@ -205,6 +271,12 @@ def main() -> None:
         "source_export": {
             "exports_dir": str(exports_dir.resolve()),
             "stem": args.stem,
+            "export_file": str(export_file.resolve()),
+            "manifest_file": str(manifest_path.resolve()) if manifest_path.exists() else None,
+            "data_origin": data_origin,
+            "export_latest_ts_utc": latest_ts.astimezone(timezone.utc).isoformat(),
+            "export_age_hours": age_hours,
+            "max_export_age_hours": args.max_export_age_hours,
             "rows_total": int(len(df)),
             "rows_used": int(len(dataset.frame)),
             "rows_train": int(len(train_df)),
@@ -216,6 +288,8 @@ def main() -> None:
             "train_frac": args.train_frac,
             "bins": args.bins,
             "min_signals": args.min_signals,
+            "bootstrap_samples": args.bootstrap_samples,
+            "require_real_export": bool(args.require_real_export),
         },
         "model_metrics": model_metrics,
         "selected_model": selected_model,
