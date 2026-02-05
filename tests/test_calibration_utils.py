@@ -36,6 +36,8 @@ def test_fit_calibrators_and_sweep() -> None:
     sweep = threshold_sweep(scored, "prob_logistic", threshold_min=0.5, threshold_max=0.9, threshold_step=0.1, min_signals=5)
     assert not sweep.empty
     assert "ev_per_deployed_dollar" in sweep.columns
+    assert "ev_ci_low_95" in sweep.columns
+    assert "ev_ci_high_95" in sweep.columns
 
 
 def test_calibration_metrics_outputs() -> None:

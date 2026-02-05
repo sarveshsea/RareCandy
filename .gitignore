@@ -51,4 +51,4 @@ analysis/results/
 exports/
 dashboard/
 ops/deployment_pause_calibration.json
-*.ipynb_checkpoints/
+.ipynb_checkpoints/

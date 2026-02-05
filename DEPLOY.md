@@ -68,16 +68,34 @@ Use this exact flow to ensure your droplet is synced to `origin/main` and calibr
    docker compose up -d
    ```
 
-4. **Run calibration pipeline inside container**
+4. **(Optional) run synthetic smoke test inside container**
    ```bash
    docker exec -w /app rare_candy_bot python3 generate_example.py
    docker exec -w /app rare_candy_bot python3 unit_check.py
-   docker exec -w /app rare_candy_bot ./scripts/run_calibration_pipeline.sh || true
+   ```
+   > This confirms wiring only. Synthetic exports are **not** valid deployment gate inputs.
+
+5. **Write/refresh real-export manifest inside container**
+   ```bash
+   docker exec -w /app rare_candy_bot python3 scripts/write_export_manifest.py \
+     --exports-dir /app/exports/live \
+     --stem rarecandy_export \
+     --data-origin live
    ```
 
-5. **Check guard status**
+6. **Run real-export calibration gate inside container**
+   ```bash
+   docker exec -w /app \
+     -e REAL_EXPORTS_DIR=/app/exports/live \
+     -e REAL_EXPORT_STEM=rarecandy_export \
+     -e MAX_EXPORT_AGE_HOURS=24 \
+     rare_candy_bot ./scripts/run_calibration_pipeline.sh || true
+   ```
+
+7. **Check guard status + manifest**
    ```bash
    docker exec -w /app rare_candy_bot cat analysis/artifacts/calibration/calibration_alert_status.json
+   docker exec -w /app rare_candy_bot cat analysis/artifacts/calibration/manifest.json
    docker exec -w /app rare_candy_bot ls -la ops/deployment_pause_calibration.json
    ```
    - If `pause_deployment: true`, runtime stays in **no-new-entries** mode (expected fail-safe).

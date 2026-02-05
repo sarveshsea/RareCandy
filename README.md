@@ -102,6 +102,12 @@ Live dashboard endpoints after deployment:
 - `http://<TAILSCALE_IP>:8000/status.json`
 - `http://<TAILSCALE_IP>:8000/logs`
 
+Deployment gate notes:
+- Synthetic exports from `generate_example.py` are smoke-test only.
+- Production gating reads real exports from `exports/live/rarecandy_export.*`.
+- Write/update export metadata before gating:
+  `python3 scripts/write_export_manifest.py --exports-dir exports/live --stem rarecandy_export --data-origin live`
+
 ---
 
 *Verified Working 2026. MIT License.*
