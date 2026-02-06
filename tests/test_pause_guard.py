@@ -49,7 +49,7 @@ class FakeStrategy:
     def __init__(self, signal):
         self._signal = signal
 
-    def evaluate(self, symbol, c_1h, c_15m):
+    def evaluate(self, symbol, c_1h, c_15m, bias=None):
         return self._signal if symbol == "BTC/USD" else None
 
 
@@ -58,6 +58,7 @@ class FakeRisk:
         self.equity = 10_000.0
         self.approved = approved
         self.evaluate_calls = 0
+        self.long_only = True
 
     def update_equity(self, new_equity):
         self.equity = new_equity
@@ -70,6 +71,9 @@ class FakeRisk:
             quantity=1.0 if self.approved else 0.0,
             notional=100.0 if self.approved else 0.0,
         )
+
+    def record_trade_execution(self):
+        return None
 
 
 def _make_signal(signal_type: SignalType) -> Signal:
@@ -93,6 +97,8 @@ def _build_bot(signal: Signal, positions, risk_approved=False, paused=True):
     bot.pause_flag_path = Path("ops/deployment_pause_calibration.json")
     bot._last_pause_state = None
     bot._last_pause_reason = ""
+    bot.position_guards = {}
+    bot._missing_guard_logged = set()
     bot._read_pause_guard = (lambda: (paused, "test pause"))
     bot._log_pause_state = (lambda paused_state, reason: None)
     return bot

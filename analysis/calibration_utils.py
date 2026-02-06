@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
+import os
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,14 @@ class CalibrationDataset:
     raw_prob: pd.Series
     label: pd.Series
     pnl: pd.Series
+
+
+DEFAULT_TRADING_COST_PER_SIDE = float(
+    os.getenv(
+        "TRADING_COST_PER_SIDE",
+        os.getenv("TRADING_FEE_RATE", "0.006"),
+    )
+)
 
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
@@ -51,7 +60,9 @@ def _infer_probability(df: pd.DataFrame) -> pd.Series:
     return pd.Series(sigmoid(z), index=df.index).clip(0.001, 0.999)
 
 
-def _infer_label_and_pnl(df: pd.DataFrame, *, horizon: int = 1, trading_cost: float = 0.0006) -> Tuple[pd.Series, pd.Series]:
+def _infer_label_and_pnl(
+    df: pd.DataFrame, *, horizon: int = 1, trading_cost: float = DEFAULT_TRADING_COST_PER_SIDE
+) -> Tuple[pd.Series, pd.Series]:
     if "target_up" in df.columns:
         label = pd.to_numeric(df["target_up"], errors="coerce").fillna(0.0).astype(int).clip(0, 1)
     else:
@@ -69,7 +80,7 @@ def build_calibration_dataset(
     df: pd.DataFrame,
     *,
     horizon: int = 1,
-    trading_cost: float = 0.0006,
+    trading_cost: float = DEFAULT_TRADING_COST_PER_SIDE,
 ) -> CalibrationDataset:
     prob = _infer_probability(df)
     label, pnl = _infer_label_and_pnl(df, horizon=horizon, trading_cost=trading_cost)

@@ -14,6 +14,8 @@ class ExchangeAdapter:
     def __init__(self, api_key: str, api_secret: str, sandbox: bool = False, paper_mode: bool = False):
         self.paper_mode = paper_mode
         self.paper_file = "paper_state.json"
+        self.slippage_rate = max(0.0, float(os.getenv("TRADING_SLIPPAGE_RATE", "0.0005")))
+        self.fee_rate = max(0.0, float(os.getenv("TRADING_FEE_RATE", "0.006")))
         
         # Default Paper State
         self.paper_state = {
@@ -116,14 +118,14 @@ class ExchangeAdapter:
             
             # 1. SLIPPAGE MODEL (0.05%)
             # Buy = Pay more, Sell = Get less
-            slippage = 0.0005 
+            slippage = self.slippage_rate
             if side == OrderSide.BUY:
                 fill_price = raw_price * (1 + slippage)
             else:
                 fill_price = raw_price * (1 - slippage)
                 
             # 2. FEE MODEL (0.6% Taker)
-            fee_rate = 0.006
+            fee_rate = self.fee_rate
             gross_cost = fill_price * decision.quantity
             fee_amt = gross_cost * fee_rate
             

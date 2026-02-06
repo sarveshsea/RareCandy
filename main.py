@@ -8,7 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Import Core Modules
-from core.types import Signal, SignalType, OrderSide
+from core.types import Bias, RiskDecision, Signal, SignalType, OrderSide
 from core.strategy.trend_pullback import TrendPullbackStrategy
 from core.risk.manager import RiskManager
 from ops.telemetry import TelemetryWriter
@@ -45,6 +45,8 @@ class WurmpleCallback:
         self.pause_entries_on_flag = os.getenv("PAUSE_ENTRIES_ON_CALIBRATION_ALERT", "true").lower() == "true"
         self._last_pause_state = None
         self._last_pause_reason = ""
+        self.position_guards = {}
+        self._missing_guard_logged = set()
         
         if not API_KEY or not API_SECRET:
             logger.error("Missing API Keys in .env")
@@ -91,6 +93,65 @@ class WurmpleCallback:
             logger.info("▶️ Deployment guard cleared. Entry deployment resumed.")
             self.telemetry.log_event("DEPLOYMENT_RESUMED", "Calibration guard cleared")
 
+    def _sync_position_guard(self, symbol: str, quantity: float):
+        if quantity <= 0 and symbol in self.position_guards:
+            self.position_guards.pop(symbol, None)
+        if quantity <= 0:
+            self._missing_guard_logged.discard(symbol)
+
+    def _maybe_process_guard_exit(self, symbol: str, quantity: float) -> bool:
+        """
+        Enforce stop-loss/take-profit exits for active spot-long positions.
+        Returns True when an exit was executed and symbol processing should stop for this tick.
+        """
+        if quantity <= 0:
+            return False
+
+        guard = self.position_guards.get(symbol)
+        if not guard:
+            if symbol not in self._missing_guard_logged:
+                self._missing_guard_logged.add(symbol)
+                self.telemetry.log_event("MISSING_POSITION_GUARD", json.dumps({"symbol": symbol}))
+                logger.warning(f"🛡️ {symbol} has open exposure without an active guard")
+            return False
+
+        ticker = self.exchange.get_ticker(symbol)
+        price = float(ticker.get("price", 0.0) or 0.0)
+        if price <= 0:
+            return False
+
+        stop_loss = guard.get("stop_loss")
+        take_profit = guard.get("take_profit")
+        hit_stop = stop_loss is not None and price <= float(stop_loss)
+        hit_take = take_profit is not None and price >= float(take_profit)
+        if not (hit_stop or hit_take):
+            return False
+
+        exit_reason = "STOP_LOSS_HIT" if hit_stop else "TAKE_PROFIT_HIT"
+        decision = RiskDecision(
+            approved=True,
+            reason=exit_reason,
+            quantity=float(quantity),
+            notional=float(quantity) * price,
+        )
+        result = self.exchange.execute_order(decision, symbol, OrderSide.SELL)
+        if result:
+            payload = {
+                "symbol": symbol,
+                "reason": exit_reason,
+                "price": price,
+                "quantity": quantity,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self.telemetry.log_event("GUARD_EXIT_EXECUTED", json.dumps(payload))
+            self.position_guards.pop(symbol, None)
+            logger.info(f"🛡️ {symbol} {exit_reason} executed at {price:.2f}")
+            return True
+
+        self.telemetry.log_event("GUARD_EXIT_FAILED", json.dumps({"symbol": symbol, "reason": exit_reason}))
+        logger.warning(f"🛡️ {symbol} {exit_reason} failed to execute")
+        return False
+
     def run_once(self):
         """Single Tick Execution."""
         logger.info("--- Tick ---")
@@ -115,7 +176,12 @@ class WurmpleCallback:
 
         for symbol in SYMBOLS:
             try:
-                has_position = symbol in open_positions and float(open_positions[symbol]) > 0
+                position_qty = float(open_positions.get(symbol, 0.0) or 0.0)
+                has_position = position_qty > 0
+                self._sync_position_guard(symbol, position_qty)
+                if self._maybe_process_guard_exit(symbol, position_qty):
+                    continue
+
                 if paused and not has_position:
                     # When paused, skip fresh scans for symbols without active exposure.
                     continue
@@ -130,7 +196,8 @@ class WurmpleCallback:
                     continue
                 
                 # 2. Pipeline: Strategy
-                signal = self.strategy.evaluate(symbol, c_1h, c_15m)
+                bias = Bias.LONG if self.risk.long_only else None
+                signal = self.strategy.evaluate(symbol, c_1h, c_15m, bias=bias)
                 
                 if signal:
                     logger.info(f"🚨 SIGNAL: {signal.type} {symbol} @ {signal.price}")
@@ -149,6 +216,14 @@ class WurmpleCallback:
                         }
                         self.telemetry.log_event("DEPLOYMENT_GUARD_BLOCK", json.dumps(payload))
                         continue
+
+                    if self._entry_signal(signal.type) and (signal.stop_loss is None or signal.take_profit is None):
+                        self.telemetry.log_event(
+                            "RISK_BLOCK",
+                            f"{symbol} missing stop/take-profit contract for {signal.type}",
+                        )
+                        logger.warning(f"🛑 {symbol} blocked: missing stop/take-profit on entry signal")
+                        continue
                     
                     # 3. Pipeline: Risk
                     decision = self.risk.evaluate(signal, open_positions)
@@ -160,9 +235,20 @@ class WurmpleCallback:
                         # 4. Pipeline: Execution
                         # Determine side based on signal type
                         side = OrderSide.BUY if signal.type == SignalType.ENTRY_LONG else OrderSide.SELL
-                        if signal.type in [SignalType.ENTRY_SHORT]: side = OrderSide.SELL # Short entry
                         
-                        self.exchange.execute_order(decision, symbol, side)
+                        order_result = self.exchange.execute_order(decision, symbol, side)
+                        if order_result:
+                            if self._entry_signal(signal.type):
+                                self.risk.record_trade_execution()
+                                self.position_guards[symbol] = {
+                                    "stop_loss": decision.stop_loss,
+                                    "take_profit": decision.take_profit,
+                                    "created_at": datetime.now(timezone.utc).isoformat(),
+                                }
+                                self._missing_guard_logged.discard(symbol)
+                            self.telemetry.log_event("TRADE_FILLED", f"{symbol} {signal.type} {decision.quantity}")
+                        else:
+                            self.telemetry.log_event("TRADE_FAILED", f"{symbol} {signal.type} execution failed")
                     else:
                         logger.info(f"🛑 RISK BLOCKED: {decision.reason}")
                         self.telemetry.log_event("RISK_BLOCK", f"{symbol} {decision.reason}")

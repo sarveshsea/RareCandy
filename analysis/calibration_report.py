@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Tuple
@@ -157,7 +158,11 @@ def main() -> None:
     parser.add_argument("--stem", default="rarecandy_export")
     parser.add_argument("--artifact-dir", default="analysis/artifacts/calibration")
     parser.add_argument("--horizon", type=int, default=1)
-    parser.add_argument("--trading-cost", type=float, default=0.0006)
+    parser.add_argument(
+        "--trading-cost",
+        type=float,
+        default=float(os.getenv("TRADING_COST_PER_SIDE", os.getenv("TRADING_FEE_RATE", "0.006"))),
+    )
     parser.add_argument("--train-frac", type=float, default=0.7)
     parser.add_argument("--bins", type=int, default=10)
     parser.add_argument("--min-signals", type=int, default=20)

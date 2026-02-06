@@ -1,5 +1,6 @@
 import ccxt
 import time
+import os
 from datetime import datetime
 from typing import List, Dict
 from core.types import Candle
@@ -13,6 +14,7 @@ class DataPipeline:
         # Use a fresh, unauthenticated client for Data to avoid 401s on public endpoints
         self.exchange = ccxt.coinbase() 
         self.cache: Dict[str, Dict[str, List[Candle]]] = {} # {symbol: {tf: [Candles]}}
+        self.history_limit = max(200, int(os.getenv("DATA_HISTORY_LIMIT", "300")))
 
     def fetch_recent_candles(self, symbol: str, timeframe: str, limit: int = 200) -> List[Candle]:
         """Fetch historical candles from exchange."""
@@ -42,8 +44,8 @@ class DataPipeline:
 
     def get_latest(self, symbol: str) -> Dict[str, List[Candle]]:
         """Get latest 1h and 15m candles for a symbol."""
-        c_1h = self.fetch_recent_candles(symbol, '1h', limit=100)
-        c_15m = self.fetch_recent_candles(symbol, '15m', limit=100)
+        c_1h = self.fetch_recent_candles(symbol, '1h', limit=self.history_limit)
+        c_15m = self.fetch_recent_candles(symbol, '15m', limit=self.history_limit)
         return {
             '1h': c_1h,
             '15m': c_15m

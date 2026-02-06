@@ -59,7 +59,10 @@ for file in "${required_files[@]}"; do
 done
 
 echo "[predeploy] Running syntax checks..."
-mapfile -t py_files < <(git ls-files "main.py" "analysis/*.py")
+py_files=()
+while IFS= read -r py_file; do
+  py_files+=("${py_file}")
+done < <(git ls-files "main.py" "analysis/*.py")
 if [[ "${#py_files[@]}" -eq 0 ]]; then
   fail 17 "syntax_check" "No Python files found for syntax check."
 fi

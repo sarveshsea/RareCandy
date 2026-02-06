@@ -22,7 +22,7 @@ class TrendPullbackStrategy(Strategy):
 
     def evaluate(self, symbol: str, candles_htf: List[Candle], candles_ltf: List[Candle], bias: Optional[Bias] = None) -> Optional[Signal]:
         # candles_htf = 1h, candles_ltf = 15m
-        if len(candles_htf) < 100 or len(candles_ltf) < 50:
+        if len(candles_htf) < (self.trend_slow + 5) or len(candles_ltf) < 50:
             return None
             
         # 1. Trend Filter (HTF)
@@ -37,6 +37,8 @@ class TrendPullbackStrategy(Strategy):
             return None
             
         trend = Bias.LONG if spread > 0 else Bias.SHORT
+        if bias is not None and trend != bias:
+            return None
         
         # 2. Pullback Check (LTF)
         price = candles_ltf[-1].close
@@ -92,6 +94,8 @@ class TrendPullbackStrategy(Strategy):
             tp = price - (risk * 2.0)
             sig_type = SignalType.ENTRY_SHORT
             
+        confidence = min(1.0, max(0.0, 0.75 + (abs(spread) * 5)))  # Clamp to Signal schema bounds.
+
         return Signal(
             type=sig_type,
             symbol=symbol,
@@ -100,7 +104,7 @@ class TrendPullbackStrategy(Strategy):
             take_profit=tp,
             reason=f"Trend Pullback ({trend.value}) at EMA Band",
             strategy_id="trend_pullback_v2",
-            confidence=0.75 + (abs(spread) * 5), # Boost confidence with stronger trend
+            confidence=confidence,
             metadata={
                 "spread": spread,
                 "rsi": rsi_val

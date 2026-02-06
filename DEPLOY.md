@@ -36,6 +36,14 @@ The setup script handles `.env` creation. If you need to change it later:
 1.  Edit `.env`: `nano .env`
 2.  Restart: `docker compose up -d --build`
 
+Recommended runtime/calibration cost settings (keep aligned):
+```bash
+TRADING_FEE_RATE=0.006
+TRADING_SLIPPAGE_RATE=0.0005
+TRADING_COST_PER_SIDE=0.006
+DATA_HISTORY_LIMIT=300
+```
+
 ## Start the Bot
 
 Run with Docker Compose:

@@ -57,6 +57,10 @@ class RiskManager:
         is_crash_mode: bool = False
     ) -> RiskDecision:
         self._reset_daily_if_needed()
+
+        # Enforce directional policy before any other stateful checks.
+        if self.long_only and signal.type == SignalType.ENTRY_SHORT:
+            return RiskDecision(approved=False, reason="Long-only mode: short entries disabled", quantity=0.0, notional=0.0)
         
         # 1. CRASH MODE
         if is_crash_mode:
@@ -66,28 +70,33 @@ class RiskManager:
             # Assuming ENTRY_SHORT is used to close LONGs in some systems, but strict typing separates them.
             # Here we just block entries.
             if True: # Strict block for now unless we implement proper Exits
-                return RiskDecision(False, "Crash Mode Active", 0.0, 0.0)
+                return RiskDecision(approved=False, reason="Crash Mode Active", quantity=0.0, notional=0.0)
 
         # 2. Daily Loss Limit
         if self.daily_pnl < -(self.daily_start_equity * 0.05):
-            return RiskDecision(False, f"Daily Loss Limit Hit ({self.daily_pnl})", 0.0, 0.0)
+            return RiskDecision(
+                approved=False,
+                reason=f"Daily Loss Limit Hit ({self.daily_pnl})",
+                quantity=0.0,
+                notional=0.0,
+            )
 
         # 3. Daily Cap
         if self.daily_trades >= self.daily_trade_cap:
-            return RiskDecision(False, "Daily Trade Cap Reached", 0.0, 0.0)
+            return RiskDecision(approved=False, reason="Daily Trade Cap Reached", quantity=0.0, notional=0.0)
 
         # 4. Cooldown
         if self.last_loss_time:
             now = datetime.now(timezone.utc)
             if now - self.last_loss_time < self.loss_cooldown:
-                return RiskDecision(False, "Cooldown Active", 0.0, 0.0)
+                return RiskDecision(approved=False, reason="Cooldown Active", quantity=0.0, notional=0.0)
 
         # 5. Position Limits (For new entries)
         current_qty = open_positions.get(signal.symbol, 0.0)
         if current_qty == 0:
             active_count = sum(1 for q in open_positions.values() if abs(q) > 0)
             if active_count >= self.max_positions:
-                return RiskDecision(False, "Max Positions Reached", 0.0, 0.0)
+                return RiskDecision(approved=False, reason="Max Positions Reached", quantity=0.0, notional=0.0)
         
         # 6. Sizing
         distance = abs(signal.price - (signal.stop_loss or (signal.price * 0.98)))
@@ -108,9 +117,8 @@ class RiskManager:
             
         # Min size ($5)
         if units * signal.price < 5.0:
-            return RiskDecision(False, "Position Too Small", 0.0, 0.0)
+            return RiskDecision(approved=False, reason="Position Too Small", quantity=0.0, notional=0.0)
             
-        self.daily_trades += 1
         return RiskDecision(
             approved=True,
             reason=f"Approved ({self.profile.name})",
@@ -119,6 +127,14 @@ class RiskManager:
             stop_loss=signal.stop_loss,
             take_profit=signal.take_profit
         )
+
+    def record_trade_execution(self) -> None:
+        """
+        Record a successfully executed trade.
+        Trade caps should only count filled orders, not approvals.
+        """
+        self._reset_daily_if_needed()
+        self.daily_trades += 1
 
     def update_equity(self, new_equity: float):
         self._reset_daily_if_needed()

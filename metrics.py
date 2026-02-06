@@ -2,12 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Iterable, Optional
+import os
 
 import numpy as np
 import pandas as pd
 
 
 DEFAULT_BARS_PER_YEAR = 365 * 24 * 4  # 15m bars
+DEFAULT_COST_PER_SIDE = float(
+    os.getenv(
+        "TRADING_COST_PER_SIDE",
+        os.getenv("TRADING_FEE_RATE", "0.006"),
+    )
+)
 
 
 def _safe_std(x: pd.Series) -> float:
@@ -21,7 +28,7 @@ def compute_equity_from_positions(
     initial_equity: float = 10000.0,
     price_col: str = "close",
     position_col: str = "position",
-    cost_per_side: float = 0.0006,
+    cost_per_side: float = DEFAULT_COST_PER_SIDE,
 ) -> pd.Series:
     """
     Build an equity curve from close prices and signed position {-1,0,1}.
@@ -58,7 +65,7 @@ def compute_trade_returns(
     *,
     price_col: str = "close",
     position_col: str = "position",
-    cost_per_side: float = 0.0006,
+    cost_per_side: float = DEFAULT_COST_PER_SIDE,
 ) -> pd.Series:
     """
     Approximate per-trade returns from position transitions.
@@ -107,7 +114,7 @@ def compute_metrics(
     price_col: str = "close",
     position_col: str = "position",
     initial_equity: float = 10000.0,
-    cost_per_side: float = 0.0006,
+    cost_per_side: float = DEFAULT_COST_PER_SIDE,
 ) -> Dict[str, float]:
     """
     Compute headline strategy metrics.

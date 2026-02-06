@@ -107,6 +107,13 @@ Deployment gate notes:
 - Production gating reads real exports from `exports/live/rarecandy_export.*`.
 - Write/update export metadata before gating:
   `python3 scripts/write_export_manifest.py --exports-dir exports/live --stem rarecandy_export --data-origin live`
+- Cost model is shared by runtime and calibration via env:
+  - `TRADING_FEE_RATE`
+  - `TRADING_SLIPPAGE_RATE`
+  - `TRADING_COST_PER_SIDE`
+
+Deploy-safe priority sequence:
+- `docs/DEPLOY_SAFE_P0_P1_SEQUENCE.md`
 
 ---
 
